@@ -1,0 +1,11 @@
+/.git
+/node_modules
+.dockerignore
+.env
+Dockerfile
+fly.toml
+/.github
+/.wwebjs_auth
+/.wwebjs_cache
+gholder.txxt
+package-lock.json
