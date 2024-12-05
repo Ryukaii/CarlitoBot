@@ -1,9 +1,32 @@
-const { Client, LocalAuth } = require("whatsapp-web.js");
+const { Client, RemoteAuth } = require("whatsapp-web.js");
 const schedule = require("node-schedule");
 const qrcode = require("qrcode-terminal");
+const mongoose = require("mongoose");
+const { MongoStore } = require("wwebjs-mongo");
 require("dotenv").config();
 const redisClient = require("./utils/redisClient"); // Importa o Redis inicializado
 const Groq = require("groq-sdk");
+const app = require("express")();
+const port = process.env.PORT || 3000;
+
+const currentEnv = process.env.PROJECT_RUN;
+
+if (currentEnv === "prod") {
+  // eslint-disable-next-line no-undef
+  puppeteerOptions = {
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // executablePath: '/usr/bin/google-chrome-stable'
+  };
+} else if (currentEnv === "dev") {
+  // eslint-disable-next-line no-undef
+  puppeteerOptions = {
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    executablePath:
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  };
+}
 
 const systemacuti = `Você está assumindo a persona de Carlo Acutis, um santo da Igreja Católica conhecido como o 'Padroeiro da Internet' e 'Santo da Juventude Digital'. Responda às perguntas e interaja com empatia, humildade e sabedoria, refletindo o caráter de um jovem santo inspirado pela fé católica e pela Eucaristia.\n\n
 
@@ -117,66 +140,88 @@ async function getGroqChatCompletion(chatId, userMessage) {
 }
 
 // Inicializando o cliente do WhatsApp
-const client = new Client({
-  authStrategy: new LocalAuth({
-    clientId: "contextual-chat-bot",
-  }),
-});
+mongoose.connect(process.env.MONGODB_URI).then(() => {
+  const store = new MongoStore({ mongoose });
+  const client = new Client({
+    // eslint-disable-next-line no-undef
+    puppeteer: puppeteerOptions,
+    authStrategy: new RemoteAuth({
+      store,
+      backupSyncIntervalMs: 300000,
+    }),
+  });
 
-client.on("qr", (qr) => {
-  qrcode.generate(qr, { small: true });
-});
+  client.setMaxListeners(0); // for an infinite number of event listeners
 
-client.on("ready", () => {
-  console.log("WhatsApp client is ready!");
-});
+  client.on("qr", (qr) => {
+    qrcode.generate(qr, { small: true });
+  });
 
-schedule.scheduleJob("0 12 * * *", async () => {
-  try {
-    const chats = await client.getChats();
-    const groupChats = chats.filter((chat) => chat.isGroup);
+  client.on("ready", () => {
+    console.log("WhatsApp client is ready!");
+  });
 
-    console.log(
-      `Encontrados ${groupChats.length} grupos para envio do Angelus.`,
-    );
+  client.on("remote_session_saved", () => {
+    logger.info("Session Remote Saved!");
+  });
 
-    for (const group of groupChats) {
-      await client.sendMessage(
-        group.id._serialized,
-        "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
+  client.on("disconnected", () => {
+    logger.info("Oh no! Client is disconnected!");
+  });
+
+  app.get("/", (req, res) => {
+    res.send("<h1>Esse server é produzido por Guilherme Costa!</h1>");
+  });
+
+  app.listen(port, () => console.log(` > Server is running on port ${port}`));
+
+  schedule.scheduleJob("0 12 * * *", async () => {
+    try {
+      const chats = await client.getChats();
+      const groupChats = chats.filter((chat) => chat.isGroup);
+
+      console.log(
+        `Encontrados ${groupChats.length} grupos para envio do Angelus.`,
       );
-      console.log(`Mensagem do Angelus enviada para o grupo: ${group.name}`);
+
+      for (const group of groupChats) {
+        await client.sendMessage(
+          group.id._serialized,
+          "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
+        );
+        console.log(`Mensagem do Angelus enviada para o grupo: ${group.name}`);
+      }
+    } catch (err) {
+      console.error("Erro ao enviar mensagem do Angelus:", err);
     }
-  } catch (err) {
-    console.error("Erro ao enviar mensagem do Angelus:", err);
-  }
-});
+  });
 
-client.on("message", async (message) => {
-  try {
-    const chatId = message.from;
+  client.on("message", async (message) => {
+    try {
+      const chatId = message.from;
 
-    if (message.body.toLowerCase().includes("@556181946042")) {
-      const userMessage = message.body.replace("@556181946042", "").trim();
-      const botResponse = await getGroqChatCompletion(chatId, userMessage);
-      await message.reply(botResponse);
-      console.log(`Mensagem recebida de ${chatId}: ${userMessage}`);
+      if (message.body.toLowerCase().includes("@556181946042")) {
+        const userMessage = message.body.replace("@556181946042", "").trim();
+        const botResponse = await getGroqChatCompletion(chatId, userMessage);
+        await message.reply(botResponse);
+        console.log(`Mensagem recebida de ${chatId}: ${userMessage}`);
+      }
+    } catch (error) {
+      console.error("Erro ao processar mensagem:", error);
     }
-  } catch (error) {
-    console.error("Erro ao processar mensagem:", error);
-  }
-});
+  });
 
-client.on("authenticated", () => {
-  console.log("Autenticado com sucesso!");
-});
+  client.on("authenticated", () => {
+    console.log("Autenticado com sucesso!");
+  });
 
-client.on("auth_failure", (msg) => {
-  console.error("Falha na autenticação:", msg);
-});
+  client.on("auth_failure", (msg) => {
+    console.error("Falha na autenticação:", msg);
+  });
 
-client.on("disconnected", (reason) => {
-  console.log("Cliente desconectado:", reason);
-});
+  client.on("disconnected", (reason) => {
+    console.log("Cliente desconectado:", reason);
+  });
 
-client.initialize();
+  client.initialize();
+});
