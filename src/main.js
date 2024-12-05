@@ -112,7 +112,7 @@ async function getGroqChatCompletion(chatId, userMessage) {
     console.log(contextMessages);
     const response = await groq.chat.completions.create({
       // mixtral-8x7b-32768 - llama-3.1-70b-versatile
-      model: "llama-3.1-70b-versatile",
+      model: process.env.MODEL,
       messages: contextMessages,
       max_tokens: 1000, // Tokens para a resposta do bot
       temperature: 0.8,
