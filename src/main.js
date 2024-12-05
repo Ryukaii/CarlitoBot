@@ -148,6 +148,7 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
     authStrategy: new RemoteAuth({
       store,
       backupSyncIntervalMs: 300000,
+      clientId: process.env.CLIENTID,
     }),
   });
 
@@ -162,11 +163,11 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
   });
 
   client.on("remote_session_saved", () => {
-    logger.info("Session Remote Saved!");
+    console.log("Session Remote Saved!");
   });
 
   client.on("disconnected", () => {
-    logger.info("Oh no! Client is disconnected!");
+    console.log("Oh no! Client is disconnected!");
   });
 
   app.get("/", (req, res) => {
