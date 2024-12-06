@@ -221,10 +221,6 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
       }
     });
 
-    client.on("authenticated", () => {
-      console.log("Autenticado com sucesso!");
-    });
-
     client.on("auth_failure", (msg) => {
       console.error("Falha na autenticação:", msg);
     });
