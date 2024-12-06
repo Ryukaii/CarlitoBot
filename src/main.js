@@ -87,14 +87,14 @@ async function saveMessage(chatId, message) {
   }
 }
 
-async function getFullContext(chatId) {
+async function getLastMessages(chatId, limit = 5) {
   const redisKey = `context:${chatId}`;
   try {
-    const storedMessages = await redisClient.lRange(redisKey, 0, -1); // Obtém todas as mensagens
-    const parsedMessages = storedMessages.map((msg) => JSON.parse(msg));
-    return parsedMessages;
+    // Recupera as últimas 'limit' mensagens
+    const storedMessages = await redisClient.lRange(redisKey, -limit, -1);
+    return storedMessages.map((msg) => JSON.parse(msg)); // Converte para objetos JSON
   } catch (error) {
-    console.error("Erro ao recuperar contexto completo do Redis:", error);
+    console.error("Erro ao recuperar as últimas mensagens do Redis:", error);
     return [];
   }
 }
@@ -102,7 +102,7 @@ async function getFullContext(chatId) {
 async function getGroqChatCompletion(chatId, userMessage) {
   try {
     // Recupera o contexto completo
-    const fullContext = await getFullContext(chatId);
+    const fullContext = await getLastMessages(chatId);
 
     // Cria o contexto para envio, incluindo a mensagem do sistema e o histórico completo
     const contextMessages = [systemPrompt, ...fullContext];
@@ -139,90 +139,98 @@ async function getGroqChatCompletion(chatId, userMessage) {
   }
 }
 
+let isClientInitialized = false;
+
 // Inicializando o cliente do WhatsApp
 mongoose.connect(process.env.MONGODB_URI).then(() => {
-  const store = new MongoStore({ mongoose });
-  const client = new Client({
-    // eslint-disable-next-line no-undef
-    puppeteer: puppeteerOptions,
-    authStrategy: new RemoteAuth({
-      store,
-      backupSyncIntervalMs: 300000,
-      clientId: process.env.CLIENTID,
-    }),
-  });
+  if (!isClientInitialized) {
+    const store = new MongoStore({ mongoose });
+    const client = new Client({
+      // eslint-disable-next-line no-undef
+      puppeteer: puppeteerOptions,
+      authStrategy: new RemoteAuth({
+        store,
+        backupSyncIntervalMs: 300000,
+        clientId: process.env.CLIENTID,
+      }),
+    });
 
-  client.setMaxListeners(0); // for an infinite number of event listeners
+    isClientInitialized = true;
 
-  client.on("qr", (qr) => {
-    qrcode.generate(qr, { small: true });
-  });
+    client.setMaxListeners(0); // for an infinite number of event listeners
 
-  client.on("ready", () => {
-    console.log("WhatsApp client is ready!");
-  });
+    client.on("qr", (qr) => {
+      qrcode.generate(qr, { small: true });
+    });
 
-  client.on("remote_session_saved", () => {
-    console.log("Session Remote Saved!");
-  });
+    client.on("ready", () => {
+      console.log("WhatsApp client is ready!");
+    });
 
-  client.on("disconnected", () => {
-    console.log("Oh no! Client is disconnected!");
-  });
+    client.on("remote_session_saved", () => {
+      console.log("Session Remote Saved!");
+    });
 
-  app.get("/", (req, res) => {
-    res.send("<h1>Esse server é produzido por Guilherme Costa!</h1>");
-  });
+    client.on("disconnected", () => {
+      console.log("Oh no! Client is disconnected!");
+    });
 
-  app.listen(port, () => console.log(` > Server is running on port ${port}`));
+    client.initialize();
 
-  schedule.scheduleJob("0 12 * * *", async () => {
-    try {
-      const chats = await client.getChats();
-      const groupChats = chats.filter((chat) => chat.isGroup);
+    app.get("/", (req, res) => {
+      res.send("<h1>Esse server é produzido por Guilherme Costa!</h1>");
+    });
 
-      console.log(
-        `Encontrados ${groupChats.length} grupos para envio do Angelus.`,
-      );
+    app.listen(port, () => console.log(` > Server is running on port ${port}`));
 
-      for (const group of groupChats) {
-        await client.sendMessage(
-          group.id._serialized,
-          "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
+    schedule.scheduleJob("0 12 * * *", async () => {
+      try {
+        const chats = await client.getChats();
+        const groupChats = chats.filter((chat) => chat.isGroup);
+
+        console.log(
+          `Encontrados ${groupChats.length} grupos para envio do Angelus.`,
         );
-        console.log(`Mensagem do Angelus enviada para o grupo: ${group.name}`);
+
+        for (const group of groupChats) {
+          await client.sendMessage(
+            group.id._serialized,
+            "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
+          );
+          console.log(
+            `Mensagem do Angelus enviada para o grupo: ${group.name}`,
+          );
+        }
+      } catch (err) {
+        console.error("Erro ao enviar mensagem do Angelus:", err);
       }
-    } catch (err) {
-      console.error("Erro ao enviar mensagem do Angelus:", err);
-    }
-  });
+    });
 
-  client.on("message", async (message) => {
-    try {
-      const chatId = message.from;
+    client.on("message", async (message) => {
+      try {
+        const chatId = message.from;
 
-      if (message.body.toLowerCase().includes("@556181946042")) {
-        const userMessage = message.body.replace("@556181946042", "").trim();
-        const botResponse = await getGroqChatCompletion(chatId, userMessage);
-        await message.reply(botResponse);
-        console.log(`Mensagem recebida de ${chatId}: ${userMessage}`);
+        if (message.body.toLowerCase().includes("@556181946042")) {
+          const userMessage = message.body.replace("@556181946042", "").trim();
+          const botResponse = await getGroqChatCompletion(chatId, userMessage);
+          await message.reply(botResponse);
+          console.log(`Mensagem recebida de ${chatId}: ${userMessage}`);
+        }
+      } catch (error) {
+        console.error("Erro ao processar mensagem:", error);
       }
-    } catch (error) {
-      console.error("Erro ao processar mensagem:", error);
-    }
-  });
+    });
 
-  client.on("authenticated", () => {
-    console.log("Autenticado com sucesso!");
-  });
+    client.on("authenticated", () => {
+      console.log("Autenticado com sucesso!");
+    });
 
-  client.on("auth_failure", (msg) => {
-    console.error("Falha na autenticação:", msg);
-  });
+    client.on("auth_failure", (msg) => {
+      console.error("Falha na autenticação:", msg);
+    });
 
-  client.on("disconnected", (reason) => {
-    console.log("Cliente desconectado:", reason);
-  });
-
-  client.initialize();
+    client.on("disconnected", (reason) => {
+      console.log("Cliente desconectado:", reason);
+    });
+  }
 });
