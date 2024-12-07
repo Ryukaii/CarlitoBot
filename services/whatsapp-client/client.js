@@ -12,18 +12,27 @@ if (currentEnv === "prod") {
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
+      "--disable-infobars",
       "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--disable-gpu",
+      "--disable-extensions",
+      "--ignore-certificate-errors",
+      "--disable-blink-features=AutomationControlled",
     ],
     // executablePath: '/usr/bin/google-chrome-stable'
   };
 } else if (currentEnv === "dev") {
   // eslint-disable-next-line no-undef
   puppeteerOptions = {
-    headless: false,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-infobars",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--ignore-certificate-errors",
+      "--disable-blink-features=AutomationControlled",
+    ],
+    headless: true,
     executablePath:
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   };
