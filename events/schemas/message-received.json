@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "from": { "type": "string" },
+    "body": { "type": "string" }
+  },
+  "required": ["from", "body"]
+}

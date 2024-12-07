@@ -28,7 +28,19 @@ if (currentEnv === "prod") {
   };
 }
 
-const systemacuti = `Você está assumindo a persona de Carlo Acutis, um santo da Igreja Católica conhecido como o 'Padroeiro da Internet' e 'Santo da Juventude Digital'. Responda às perguntas e interaja com empatia, humildade e sabedoria, refletindo o caráter de um jovem santo inspirado pela fé católica e pela Eucaristia.\n\n
+mongoose.connect(process.env.MONGODB_URI).then(() => {
+  const store = new MongoStore({ mongoose });
+  const client = new Client({
+    // eslint-disable-next-line no-undef
+    puppeteer: puppeteerOptions,
+    authStrategy: new RemoteAuth({
+      store,
+      backupSyncIntervalMs: 300000,
+      clientId: process.env.CLIENTID,
+    }),
+  });
+
+  const systemacuti = `Você está assumindo a persona de Carlo Acutis, um santo da Igreja Católica conhecido como o 'Padroeiro da Internet' e 'Santo da Juventude Digital'. Responda às perguntas e interaja com empatia, humildade e sabedoria, refletindo o caráter de um jovem santo inspirado pela fé católica e pela Eucaristia.\n\n
 
 
 Proibições:\n
@@ -70,163 +82,144 @@ Orientação Geral:\n
 - Se precisar de ajuda, estou aqui para te guiar! 🙏🏻\n
 `;
 
-const systemPrompt = {
-  role: "system",
-  content: systemacuti,
-};
+  const systemPrompt = {
+    role: "system",
+    content: systemacuti,
+  };
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-async function saveMessage(chatId, message) {
-  const redisKey = `context:${chatId}`;
-  try {
-    await redisClient.rPush(redisKey, JSON.stringify(message)); // Adiciona mensagem no Redis
-    await redisClient.expire(redisKey, 24 * 60 * 60); // Expiração de 24 horas
-  } catch (error) {
-    console.error("Erro ao salvar mensagem no Redis:", error);
+  async function saveMessage(chatId, message) {
+    const redisKey = `context:${chatId}`;
+    try {
+      await redisClient.rPush(redisKey, JSON.stringify(message)); // Adiciona mensagem no Redis
+      await redisClient.expire(redisKey, 24 * 60 * 60); // Expiração de 24 horas
+    } catch (error) {
+      console.error("Erro ao salvar mensagem no Redis:", error);
+    }
   }
-}
 
-async function getLastMessages(chatId, limit = 5) {
-  const redisKey = `context:${chatId}`;
-  try {
-    // Recupera as últimas 'limit' mensagens
-    const storedMessages = await redisClient.lRange(redisKey, -limit, -1);
-    return storedMessages.map((msg) => JSON.parse(msg)); // Converte para objetos JSON
-  } catch (error) {
-    console.error("Erro ao recuperar as últimas mensagens do Redis:", error);
-    return [];
+  async function getLastMessages(chatId, limit = 5) {
+    const redisKey = `context:${chatId}`;
+    try {
+      // Recupera as últimas 'limit' mensagens
+      const storedMessages = await redisClient.lRange(redisKey, -limit, -1);
+      return storedMessages.map((msg) => JSON.parse(msg)); // Converte para objetos JSON
+    } catch (error) {
+      console.error("Erro ao recuperar as últimas mensagens do Redis:", error);
+      return [];
+    }
   }
-}
 
-async function getGroqChatCompletion(chatId, userMessage) {
-  try {
-    // Recupera o contexto completo
-    const fullContext = await getLastMessages(chatId);
+  async function getGroqChatCompletion(chatId, userMessage) {
+    try {
+      // Recupera o contexto completo
+      const fullContext = await getLastMessages(chatId);
 
-    // Cria o contexto para envio, incluindo a mensagem do sistema e o histórico completo
-    const contextMessages = [systemPrompt, ...fullContext];
+      // Cria o contexto para envio, incluindo a mensagem do sistema e o histórico completo
+      const contextMessages = [systemPrompt, ...fullContext];
 
-    // Adiciona apenas a nova mensagem do usuário no final
-    contextMessages.push({ role: "user", content: userMessage });
-    console.log(contextMessages);
-    const response = await groq.chat.completions.create({
-      // mixtral-8x7b-32768 - llama-3.1-70b-versatile
-      model: process.env.MODEL,
-      messages: contextMessages,
-      max_tokens: 1000, // Tokens para a resposta do bot
-      temperature: 0.8,
-      top_p: 0.8,
-    });
-    console.log(
-      "Resposta completa da API Groq:",
-      JSON.stringify(response, null, 2),
-    );
+      // Adiciona apenas a nova mensagem do usuário no final
+      contextMessages.push({ role: "user", content: userMessage });
+      console.log(contextMessages);
+      const response = await groq.chat.completions.create({
+        // mixtral-8x7b-32768 - llama-3.1-70b-versatile
+        model: process.env.MODEL,
+        messages: contextMessages,
+        max_tokens: 1000, // Tokens para a resposta do bot
+        temperature: 0.8,
+        top_p: 0.8,
+      });
+      console.log(
+        "Resposta completa da API Groq:",
+        JSON.stringify(response, null, 2),
+      );
 
-    // Obtém a resposta do modelo
-    const botResponse =
-      response.choices[0]?.message?.content ||
-      "Houve um erro ao gerar a resposta.";
+      // Obtém a resposta do modelo
+      const botResponse =
+        response.choices[0]?.message?.content ||
+        "Houve um erro ao gerar a resposta.";
 
-    // Salva a nova mensagem do usuário e do assistente no Redis
-    await saveMessage(chatId, { role: "user", content: userMessage });
-    await saveMessage(chatId, { role: "assistant", content: botResponse });
+      // Salva a nova mensagem do usuário e do assistente no Redis
+      await saveMessage(chatId, { role: "user", content: userMessage });
+      await saveMessage(chatId, { role: "assistant", content: botResponse });
 
-    return botResponse;
-  } catch (error) {
-    console.error("Erro ao obter resposta da API da Groq:", error);
-    //return "Não consegui processar sua solicitação.";
+      return botResponse;
+    } catch (error) {
+      console.error("Erro ao obter resposta da API da Groq:", error);
+      //return "Não consegui processar sua solicitação.";
+    }
   }
-}
 
-let isClientInitialized = false;
+  // Inicializando o cliente do WhatsApp
 
-// Inicializando o cliente do WhatsApp
-mongoose.connect(process.env.MONGODB_URI).then(() => {
-  if (!isClientInitialized) {
-    const store = new MongoStore({ mongoose });
-    const client = new Client({
-      // eslint-disable-next-line no-undef
-      puppeteer: puppeteerOptions,
-      authStrategy: new RemoteAuth({
-        store,
-        backupSyncIntervalMs: 300000,
-        clientId: process.env.CLIENTID,
-      }),
-    });
+  client.setMaxListeners(0); // for an infinite number of event listeners
 
-    isClientInitialized = true;
+  client.on("qr", (qr) => {
+    qrcode.generate(qr, { small: true });
+  });
 
-    client.setMaxListeners(0); // for an infinite number of event listeners
+  client.on("ready", () => {
+    console.log("WhatsApp client is ready!");
+  });
 
-    client.on("qr", (qr) => {
-      qrcode.generate(qr, { small: true });
-    });
+  client.on("remote_session_saved", () => {
+    console.log("Session Remote Saved!");
+  });
 
-    client.on("ready", () => {
-      console.log("WhatsApp client is ready!");
-    });
+  client.on("disconnected", () => {
+    console.log("Oh no! Client is disconnected!");
+  });
 
-    client.on("remote_session_saved", () => {
-      console.log("Session Remote Saved!");
-    });
+  client.initialize();
 
-    client.on("disconnected", () => {
-      console.log("Oh no! Client is disconnected!");
-    });
+  app.get("/", (req, res) => {
+    res.send("<h1>Esse server é produzido por Guilherme Costa!</h1>");
+  });
 
-    client.initialize();
+  app.listen(port, () => console.log(` > Server is running on port ${port}`));
 
-    app.get("/", (req, res) => {
-      res.send("<h1>Esse server é produzido por Guilherme Costa!</h1>");
-    });
+  schedule.scheduleJob("0 12 * * *", async () => {
+    try {
+      const chats = await client.getChats();
+      const groupChats = chats.filter((chat) => chat.isGroup);
 
-    app.listen(port, () => console.log(` > Server is running on port ${port}`));
+      console.log(
+        `Encontrados ${groupChats.length} grupos para envio do Angelus.`,
+      );
 
-    schedule.scheduleJob("0 12 * * *", async () => {
-      try {
-        const chats = await client.getChats();
-        const groupChats = chats.filter((chat) => chat.isGroup);
-
-        console.log(
-          `Encontrados ${groupChats.length} grupos para envio do Angelus.`,
+      for (const group of groupChats) {
+        await client.sendMessage(
+          group.id._serialized,
+          "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
         );
-
-        for (const group of groupChats) {
-          await client.sendMessage(
-            group.id._serialized,
-            "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
-          );
-          console.log(
-            `Mensagem do Angelus enviada para o grupo: ${group.name}`,
-          );
-        }
-      } catch (err) {
-        console.error("Erro ao enviar mensagem do Angelus:", err);
+        console.log(`Mensagem do Angelus enviada para o grupo: ${group.name}`);
       }
-    });
+    } catch (err) {
+      console.error("Erro ao enviar mensagem do Angelus:", err);
+    }
+  });
 
-    client.on("message", async (message) => {
-      try {
-        const chatId = message.from;
+  client.on("message", async (message) => {
+    try {
+      const chatId = message.from;
 
-        if (message.body.toLowerCase().includes("@556181946042")) {
-          const userMessage = message.body.replace("@556181946042", "").trim();
-          const botResponse = await getGroqChatCompletion(chatId, userMessage);
-          await message.reply(botResponse);
-          console.log(`Mensagem recebida de ${chatId}: ${userMessage}`);
-        }
-      } catch (error) {
-        console.error("Erro ao processar mensagem:", error);
+      if (message.body.toLowerCase().includes("@556181946042")) {
+        const userMessage = message.body.replace("@556181946042", "").trim();
+        const botResponse = await getGroqChatCompletion(chatId, userMessage);
+        await message.reply(botResponse);
+        console.log(`Mensagem recebida de ${chatId}: ${userMessage}`);
       }
-    });
+    } catch (error) {
+      console.error("Erro ao processar mensagem:", error);
+    }
+  });
 
-    client.on("auth_failure", (msg) => {
-      console.error("Falha na autenticação:", msg);
-    });
+  client.on("auth_failure", (msg) => {
+    console.error("Falha na autenticação:", msg);
+  });
 
-    client.on("disconnected", (reason) => {
-      console.log("Cliente desconectado:", reason);
-    });
-  }
+  client.on("disconnected", (reason) => {
+    console.log("Cliente desconectado:", reason);
+  });
 });

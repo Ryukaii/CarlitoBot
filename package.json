@@ -2,15 +2,17 @@
   "name": "carlito_bot",
   "version": "1.0.0",
   "description": "",
-  "main": "src/main.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/main.js"
+    "start": "node ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "amqplib": "^0.10.5",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "express": "^4.21.1",
