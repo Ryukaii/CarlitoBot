@@ -9,7 +9,6 @@ if (currentEnv === "prod") {
   // eslint-disable-next-line no-undef
   puppeteerOptions = {
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
     // executablePath: '/usr/bin/google-chrome-stable'
   };
 } else if (currentEnv === "dev") {
