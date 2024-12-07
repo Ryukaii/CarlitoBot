@@ -30,8 +30,8 @@ async function processMessage(event) {
     const response = await groq.chat.completions.create({
       model: process.env.MODEL,
       messages,
-      max_tokens: 1000,
-      temperature: 0.8,
+      max_tokens: process.env.MAXTOKENS,
+      temperature: process.env.TEMPERATURE,
     });
 
     // Extrai a resposta
