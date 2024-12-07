@@ -3,6 +3,25 @@ const { MongoStore } = require("wwebjs-mongo");
 const mongoose = require("mongoose");
 const qrcode = require("qrcode-terminal");
 
+const currentEnv = process.env.PROJECT_RUN;
+
+if (currentEnv === "prod") {
+  // eslint-disable-next-line no-undef
+  puppeteerOptions = {
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // executablePath: '/usr/bin/google-chrome-stable'
+  };
+} else if (currentEnv === "dev") {
+  // eslint-disable-next-line no-undef
+  puppeteerOptions = {
+    headless: false,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    executablePath:
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  };
+}
+
 require("dotenv").config();
 
 const client = new Client({
@@ -11,9 +30,7 @@ const client = new Client({
     backupSyncIntervalMs: 300000,
     clientId: process.env.CLIENTID,
   }),
-  puppeteer: {
-    headless: false,
-  },
+  puppeteer: puppeteerOptions,
 });
 
 // Gera o QR Code no terminal
