@@ -2,7 +2,9 @@ const express = require("express");
 const webhook = require("./api/webhook");
 const startWhatsAppService = require("./services/whatsapp-client");
 const { receiveMessagesFromQueue } = require("./queues/queue-consumer");
+const { client } = require("./services/whatsapp-client/client");
 require("dotenv").config();
+// carrega client para testar funcao
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -15,7 +17,7 @@ app.use("/api", webhook);
 (async () => {
   try {
     console.log(" > Inicializando Serviços");
-    await startWhatsAppService();
+    await startWhatsAppService(client);
     console.log(" > Serviço WhatsApp Inicializado");
     setInterval(receiveMessagesFromQueue, 5000);
   } catch (error) {

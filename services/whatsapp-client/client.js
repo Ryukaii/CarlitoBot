@@ -32,7 +32,7 @@ if (currentEnv === "prod") {
       "--ignore-certificate-errors",
       "--disable-blink-features=AutomationControlled",
     ],
-    headless: false,
+    headless: true,
     executablePath:
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   };

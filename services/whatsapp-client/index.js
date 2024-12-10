@@ -12,11 +12,13 @@ async function startWhatsAppService() {
     client.initialize();
 
     await clientReadyPromise;
+
     console.log(
       " > Cliente WhatsApp inicializado e pronto para registrar eventos.",
     );
 
     setupHandlers(client);
+    return client;
   } catch (err) {
     console.error("Erro ao iniciar o serviço WhatsApp:", err);
     throw err; // Propaga o erro para ser tratado no app.js

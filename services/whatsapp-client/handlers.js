@@ -10,6 +10,7 @@ function setupHandlers(client) {
   client.on("message", async (message) => {
     try {
       // Enfileira a mensagem ou executa lógica necessária
+      //console.log(message);
       await handleIncomingMessage(message);
     } catch (error) {
       console.error("Erro ao processar mensagem:", error);
