@@ -55,8 +55,17 @@ client.on("qr", (qr) => {
   console.log("QR Code gerado. Escaneie para conectar.");
 });
 
-client.on("authenticated" || "auth_failure", (session) => {
-  console.log("Autenticado com sucesso!");
+let isAuthenticated = false;
+
+client.on("authenticated", () => {
+  if (!isAuthenticated) {
+    console.log("Autenticado com sucesso!");
+    isAuthenticated = true;
+  }
+});
+
+client.on("auth_failure", (error) => {
+  console.error("Falha na autenticação:", error);
 });
 
 // Eventos de inicialização
