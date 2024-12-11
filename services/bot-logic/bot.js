@@ -90,4 +90,11 @@ scheduleMessage(
   client,
 );
 
+scheduleMessage(
+  "42 9 * * *",
+  "📿 Bom dia! Que Deus abençoe o seu dia e ilumine o seu caminho. 🙏",
+  false,
+  ["120363359894912599@g.us"],
+  client,
+
 module.exports = { processMessage };
