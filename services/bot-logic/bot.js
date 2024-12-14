@@ -4,8 +4,6 @@ require("dotenv").config();
 const fs = require("fs");
 //consome o arquivo system_prompt.txt
 const systemacuti = fs.readFileSync("system_prompt.txt", "utf8");
-
-const { client } = require("../../services/whatsapp-client/client");
 const { scheduleMessage } = require("../../utils/cronJobs");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -60,7 +58,6 @@ scheduleMessage(
   "📿 É hora do Angelus! Vamos rezar juntos: \n\nO Anjo do Senhor anunciou a Maria...",
   true,
   [],
-  client,
 );
 
 scheduleMessage(
@@ -69,16 +66,14 @@ scheduleMessage(
 `,
   true,
   [],
-  client,
 );
 
 scheduleMessage(
-  "0 12 * * 5",
+  "45 11 * * 5",
   ` 📿 Boa tarde! No meio do dia, vamos nos lembrar de que a *abstinência de carne* é um ato de amor e renúncia. \n\nVamos oferecer nossos sacrifícios com amor e esperança, sabendo que Deus está conosco em todos os momentos. \n"O Senhor é minha luz e minha salvação: de quem terei medo?" (Sl 26,1) \n\nQue a presença de Deus nos ilumine e nos proteja! 🌟
 `,
   true,
   [],
-  client,
 );
 
 scheduleMessage(
@@ -87,7 +82,6 @@ scheduleMessage(
 `,
   true,
   [],
-  client,
 );
 
 scheduleMessage(
@@ -95,7 +89,6 @@ scheduleMessage(
   "📿 Bom dia! Que Deus abençoe o seu dia e ilumine o seu caminho. 🙏",
   false,
   ["120363359894912599@g.us"],
-  client,
 );
 
 module.exports = { processMessage };

@@ -1,8 +1,6 @@
 const express = require("express");
-const webhook = require("./api/webhook");
-const startWhatsAppService = require("./services/whatsapp-client");
+const webhookRouter = require("./api/webhook");
 const { receiveMessagesFromQueue } = require("./queues/queue-consumer");
-const { client } = require("./services/whatsapp-client/client");
 require("dotenv").config();
 // carrega client para testar funcao
 
@@ -10,20 +8,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use("/api", webhook);
+app.use("/api", webhookRouter);
 
 // Inicializa o serviço WhatsApp e depois inicia o consumo de mensagens
 
-(async () => {
-  try {
-    console.log(" > Inicializando Serviços");
-    await startWhatsAppService(client);
-    console.log(" > Serviço WhatsApp Inicializado");
-    setInterval(receiveMessagesFromQueue, 5000);
-  } catch (error) {
-    console.error("Erro ao inicializar serviços:", error);
-    process.exit(1);
-  }
-})();
+setInterval(receiveMessagesFromQueue, 5000);
 
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
