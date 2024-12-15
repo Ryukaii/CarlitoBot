@@ -25,10 +25,24 @@ async function receiveMessagesFromQueue() {
 
         try {
           const response = await processMessage(event);
+
+          const messages = response
+            .split("\n\n")
+            .filter((msg) => msg.trim() !== "");
+          console.log("Mensagens separadas:", messages);
+
           const recipient = event.isGroup ? event.groupId : event.from;
 
-          await sendWhatsAppMessage(recipient, response);
-          console.log(`Resposta enviada para ${event.from}: ${response}`);
+          for (const msg of messages) {
+            await sendWhatsAppMessage(recipient, msg.trim());
+            console.log(`Mensagem individual enviada: "${msg.trim()}"`);
+          }
+
+          console.log("Resposta completa da IA:", response);
+
+          console.log(
+            `Todas as mensagens enviadas para ${event.recipient || event.from}`,
+          );
 
           await sqs
             .deleteMessage({
