@@ -33,9 +33,9 @@ async function receiveMessagesFromQueue() {
 
           const recipient = event.isGroup ? event.groupId : event.from;
 
-          for (const msg of messages) {
+          for (const [index, msg] of messages.entries()) {
+            await new Promise((resolve) => setTimeout(resolve, index * 2000));
             await sendWhatsAppMessage(recipient, msg.trim());
-            console.log(`Mensagem individual enviada: "${msg.trim()}"`);
           }
 
           console.log("Resposta completa da IA:", response);
