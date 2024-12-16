@@ -12,7 +12,7 @@ router.post("/webhook", express.json(), async (req, res) => {
   // mostra o corpo da requisição
   console.log(req.body);
   try {
-    const webhookData = req.body;
+    const webhookData = req.body.body;
 
     if (webhookData.type === "ReceivedCallback" && !webhookData.fromMe) {
       const messageData = {
